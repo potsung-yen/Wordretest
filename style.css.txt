@@ -1,0 +1,78 @@
+body {
+    font-family: "微軟正黑體", sans-serif;
+    background-color: #f5f6fa;
+    text-align: center;
+    color: #2f3542;
+    margin: 0;
+    padding: 20px;
+}
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+h1 { color: #e1b12c; }
+.player-info { margin-bottom: 20px; }
+.player-info input { padding: 8px; font-size: 16px; width: 60%; }
+.player-info button { padding: 8px 15px; font-size: 16px; background-color: #4cd137; color: white; border: none; border-radius: 5px; cursor: pointer; }
+.settings { background-color: #f1f2f6; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+.settings input[type="number"] { width: 60px; padding: 5px; text-align: center; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; }
+.settings input[type="text"] { width: 60%; padding: 6px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; text-align: center; }
+.stats { display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; }
+#bossBtn { background-color: #e84118; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+#exportBtn { background-color: #0097e6; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+.question-box { background-color: #ffeaa7; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+h2 { margin: 0 0 10px 0; font-size: 32px; color: #d63031; }
+.sentence-hint { font-size: 18px; color: #2d3436; margin-bottom: 15px; font-weight: bold; }
+.sound-btn { background-color: #74b9ff; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+.input-area input { font-size: 24px; padding: 10px; width: 60%; text-align: center; border: 2px solid #a4b0be; border-radius: 5px; }
+.input-area button { font-size: 20px; padding: 10px 20px; background-color: #9c88ff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+#nextBtn { background-color: #00a8ff; }
+.feedback { font-size: 20px; font-weight: bold; margin-top: 15px; min-height: 30px; }
+.correct { color: #44bd32; }
+.wrong { color: #e84118; }
+.upload-btn { display: inline-block; padding: 8px 15px; background-color: #2bcbba; color: white; border-radius: 5px; cursor: pointer; font-size: 14px; margin-bottom: 10px; }
+.upload-status { font-size: 14px; color: #16a085; }
+
+/* 選擇題選項按鈕 */
+.option-btn {
+    background-color: #f1f2f6; color: #2f3542; border: 2px solid #ced6e0;
+    padding: 12px 20px; font-size: 20px; border-radius: 12px; cursor: pointer;
+    width: 45%; min-width: 150px; transition: all 0.2s; font-weight: bold;
+}
+.option-btn:hover { background-color: #dfe4ea; border-color: #74b9ff; }
+.option-btn:active { transform: scale(0.95); }
+.option-btn.btn-correct { background-color: #00b894 !important; color: white !important; border-color: #00b894 !important; box-shadow: 0 0 10px rgba(0, 184, 148, 0.5); }
+.option-btn.btn-wrong { background-color: #d63031 !important; color: white !important; border-color: #d63031 !important; }
+.option-btn:disabled { cursor: not-allowed; opacity: 0.7; }
+
+/* 單字挑選器 (Modal) */
+.modal { 
+    position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; 
+    background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; 
+}
+.modal-content { 
+    background-color: white; padding: 20px; border-radius: 15px; width: 90%; max-width: 500px; 
+    max-height: 85vh; display: flex; flex-direction: column; position: relative; box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+}
+.close-btn { 
+    color: #b2bec3; position: absolute; right: 20px; top: 15px; font-size: 32px; 
+    font-weight: bold; cursor: pointer; transition: color 0.2s;
+}
+.close-btn:hover { color: #d63031; }
+.word-list-container { 
+    text-align: left; overflow-y: auto; flex-grow: 1; border: 2px solid #dfe6e9; 
+    padding: 10px; border-radius: 8px; margin-bottom: 15px; background: #fafafa;
+}
+.word-item { padding: 8px 5px; border-bottom: 1px dashed #ced6e0; font-size: 16px; display: flex; align-items: center; }
+.word-item:hover { background-color: #f1f2f6; }
+.word-checkbox { width: 18px; height: 18px; margin-right: 10px; cursor: pointer; }
+.word-item label { cursor: pointer; flex-grow: 1; color: #2d3436; }
+.confirm-btn { 
+    background-color: #00b894; color: white; border: none; padding: 12px 20px; 
+    font-size: 18px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: transform 0.1s;
+}
+.confirm-btn:active { transform: scale(0.95); }
