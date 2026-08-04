@@ -146,7 +146,6 @@ function getDetailedPOS(eng, chi) {
     let cleanEng = eng.toLowerCase().trim();
     let cleanChi = chi.trim();
     let baseEng = cleanEng.replace(/\([^)]*\)/g, '').trim(); 
-
     let posResult = "";
 
     if (baseEng.startsWith("to ") || cleanChi.includes("(動詞)")) {
@@ -174,20 +173,11 @@ function getDetailedPOS(eng, chi) {
             }
         }
     }
-
-    let isMultiWord = baseEng.includes(" ") && !baseEng.startsWith("to ") && !baseEng.startsWith("a ") && !baseEng.startsWith("an ");
-    const specificPhrases = ["a lot of", "a few", "how many", "how much", "right here", "right there", "over here", "over there", "an only child", "on my way", "to pick up", "to put down", "table tennis", "video game", "chinese checkers"];
-    
-    if (isMultiWord || specificPhrases.includes(baseEng)) {
-        posResult = posResult + " / phr. 片語";
-    }
-
     return `📌[${posResult}]`;
 }
 
 function nextQuestion() {
     const mode = document.querySelector('input[name="gameMode"]:checked').value;
-    
     document.getElementById("nextBtn").style.display = "none";
     document.getElementById("feedbackMsg").innerText = "";
     
@@ -216,7 +206,7 @@ function nextQuestion() {
     } else {
         const combinedList = getCombinedWordList();
         if (combinedList.length === 0) {
-            alert("⚠️ 目前群組或範圍內沒有單字，請先新增或切換題庫！");
+            alert("⚠️ 目前群組或範圍內沒有單字，請先至「管理群組單字」加入單字！");
             return;
         }
         const randomIndex = Math.floor(Math.random() * combinedList.length);
@@ -230,33 +220,26 @@ function nextQuestion() {
     if (currentWord.sentence) {
         const cleanTarget = currentWord.english.replace(/^(a |an |the |to )/i, '').replace(/\([^)]*\)/g, '').trim();
         const regex = new RegExp(cleanTarget, 'gi');
-        const blankedSentence = currentWord.sentence.replace(regex, "________");
-        sentenceHint.innerText = blankedSentence;
+        sentenceHint.innerText = currentWord.sentence.replace(regex, "________");
         sentenceHint.style.display = "block";
     } else {
         sentenceHint.style.display = "none";
         sentenceHint.innerText = "";
     }
 
-    if (mode === "choice") {
-        renderChoiceOptions();
-    }
-
+    if (mode === "choice") renderChoiceOptions();
     speakWord(); 
 }
 
 function renderChoiceOptions() {
     const choiceArea = document.getElementById("choiceArea");
     choiceArea.innerHTML = "";
-
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
     let fullList = wordList.concat(customWords);
 
     let wrongOptions = fullList.filter(w => w.english.toLowerCase() !== currentWord.english.toLowerCase());
     wrongOptions.sort(() => Math.random() - 0.5);
-    let distractors = wrongOptions.slice(0, 3);
-
-    let options = [currentWord, ...distractors];
+    let options = [currentWord, ...wrongOptions.slice(0, 3)];
     options.sort(() => Math.random() - 0.5);
 
     options.forEach(opt => {
@@ -271,32 +254,13 @@ function renderChoiceOptions() {
 function speakWord() {
     let textToSpeak = currentWord.english.replace(/^(a |an |the |to )/i, '').replace(/\([^)]*\)/g, '').trim();
     if (!textToSpeak) return;
-
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         let utterance = new SpeechSynthesisUtterance(textToSpeak);
         utterance.lang = 'en-US';
         utterance.rate = 0.85;
-        utterance.pitch = 1.0;
-
-        let voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0) {
-            let preferredVoice = voices.find(v => v.lang === 'en-US' && (v.name.includes('Natural') || v.name.includes('Siri') || v.name.includes('Google') || v.name.includes('Samantha')));
-            if (preferredVoice) {
-                utterance.voice = preferredVoice;
-            } else {
-                let enVoice = voices.find(v => v.lang === 'en-US' || v.lang.startsWith('en'));
-                if (enVoice) utterance.voice = enVoice;
-            }
-        }
         window.speechSynthesis.speak(utterance);
     }
-}
-
-if ('speechSynthesis' in window) {
-    window.speechSynthesis.onvoiceschanged = function() {
-        window.speechSynthesis.getVoices();
-    };
 }
 
 function checkAnswer() {
@@ -309,28 +273,20 @@ function checkChoiceAnswer(clickedBtn, selectedWord) {
     const choiceArea = document.getElementById("choiceArea");
     const allBtns = choiceArea.querySelectorAll(".option-btn");
     allBtns.forEach(b => b.disabled = true);
-
     const correctAnswer = currentWord.english.toLowerCase();
     const isCorrect = (selectedWord.toLowerCase() === correctAnswer);
 
-    if (isCorrect) {
-        clickedBtn.classList.add("btn-correct");
-    } else {
+    if (isCorrect) clickedBtn.classList.add("btn-correct");
+    else {
         clickedBtn.classList.add("btn-wrong");
-        allBtns.forEach(b => {
-            if (b.innerText.toLowerCase() === correctAnswer) {
-                b.classList.add("btn-correct");
-            }
-        });
+        allBtns.forEach(b => { if (b.innerText.toLowerCase() === correctAnswer) b.classList.add("btn-correct"); });
     }
-
     processResult(selectedWord, true);
 }
 
 function processResult(userInput, isChoiceMode) {
     const correctAnswer = currentWord.english.toLowerCase();
     const correctClean = correctAnswer.replace(/^(a |an |the |to )/i, '').replace(/\([^)]*\)/g, '').trim();
-
     const feedback = document.getElementById("feedbackMsg");
     let playerRecord = getPlayerRecord();
     let isCorrect = (userInput.toLowerCase() === correctAnswer || userInput.toLowerCase() === correctClean);
@@ -339,21 +295,15 @@ function processResult(userInput, isChoiceMode) {
         feedback.innerText = "✨ 答對了！太厲害了！";
         feedback.className = "feedback correct";
         playerRecord.score += 10;
-        
         bunnySay("太棒了！答對囉！🎉");
-
         if (playerRecord.mistakes[correctAnswer]) {
             playerRecord.mistakes[correctAnswer].count -= 1;
-            if (playerRecord.mistakes[correctAnswer].count <= 0) {
-                delete playerRecord.mistakes[correctAnswer]; 
-            }
+            if (playerRecord.mistakes[correctAnswer].count <= 0) delete playerRecord.mistakes[correctAnswer]; 
         }
     } else {
         feedback.innerText = `❌ 正確單字: ${currentWord.english}`;
         feedback.className = "feedback wrong";
-        
         bunnySay("沒關係，再試一次！💪");
-
         if (!playerRecord.mistakes[correctAnswer]) {
             playerRecord.mistakes[correctAnswer] = { ...currentWord, count: 1 };
         } else {
@@ -361,9 +311,7 @@ function processResult(userInput, isChoiceMode) {
         }
     }
 
-    if (currentWord.sentence) {
-        document.getElementById("sentenceHint").innerText = currentWord.sentence;
-    }
+    if (currentWord.sentence) document.getElementById("sentenceHint").innerText = currentWord.sentence;
 
     savePlayerRecord(playerRecord);
     syncAutoMistakesGroup(playerRecord);
@@ -376,13 +324,11 @@ function processResult(userInput, isChoiceMode) {
     }
 
     let autoNext = document.getElementById("autoNext").checked;
-
     if (autoNext) {
-        let delay = isCorrect ? 1500 : 3500;
         setTimeout(() => {
             if(isBossMode) bossWordList = Object.values(getPlayerRecord().mistakes);
             nextQuestion();
-        }, delay);
+        }, isCorrect ? 1500 : 3500);
     } else {
         document.getElementById("nextBtn").style.display = "inline-block";
         if(isBossMode) bossWordList = Object.values(getPlayerRecord().mistakes);
@@ -391,11 +337,8 @@ function processResult(userInput, isChoiceMode) {
 
 function handleEnter(event) {
     if (event.key === "Enter") {
-        if (document.getElementById("nextBtn").style.display === "inline-block") {
-            nextQuestion();
-        } else if (document.getElementById("submitBtn").style.display === "inline-block") {
-            checkAnswer();
-        }
+        if (document.getElementById("nextBtn").style.display === "inline-block") nextQuestion();
+        else if (document.getElementById("submitBtn").style.display === "inline-block") checkAnswer();
     }
 }
 
@@ -430,14 +373,9 @@ function exportMistakes() {
     
     let csvContent = "\uFEFF英文單字,詞性,中文意思,例句,錯誤次數\n";
     mistakes.sort((a, b) => b.count - a.count);
-    
     mistakes.forEach(word => {
         let tag = getDetailedPOS(word.english, word.chinese).replace("📌", "").trim();
-        let safeEnglish = `"${word.english}"`;
-        let safeTag = `"${tag}"`;
-        let safeChinese = `"${word.chinese}"`;
-        let safeSentence = word.sentence ? `"${word.sentence.replace(/"/g, '""')}"` : `""`; 
-        csvContent += `${safeEnglish},${safeTag},${safeChinese},${safeSentence},${word.count}\n`;
+        csvContent += `"${word.english}","${tag}","${word.chinese}","${word.sentence ? word.sentence.replace(/"/g, '""') : ""}",${word.count}\n`;
     });
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -447,37 +385,27 @@ function exportMistakes() {
     link.click();
 }
 
-// ==================== 自動防重的 CSV 批次匯入 ====================
+// ==================== CSV 匯入與防重 ====================
 function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
     const reader = new FileReader();
-    reader.onload = function(e) {
-        processCSVText(e.target.result);
-        event.target.value = ''; 
-    };
+    reader.onload = function(e) { processCSVText(e.target.result); event.target.value = ''; };
     reader.readAsText(file, "UTF-8");
 }
 
 function processCSVText(text) {
     const rows = text.split('\n');
-    let addedCount = 0;
-    let duplicateCount = 0;
-    
+    let addedCount = 0, duplicateCount = 0;
     let engIdx = 0, tagIdx = 1, chiIdx = 2, senIdx = 3; 
-    
     let existingCustomWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
     let allExistingEng = new Set(wordList.concat(existingCustomWords).map(w => w.english.toLowerCase().trim()));
-    
     let newWordsToAdd = [];
     
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i].trim();
         if (!row) continue;
-        
         const cols = parseCSVRow(row);
-        
         if (i === 0 && (cols.includes("英文單字") || cols.includes("english"))) {
             engIdx = cols.findIndex(c => c.includes("英文") || c.toLowerCase().includes("english"));
             tagIdx = cols.findIndex(c => c.includes("詞性") || c.toLowerCase().includes("pos"));
@@ -485,7 +413,6 @@ function processCSVText(text) {
             senIdx = cols.findIndex(c => c.includes("例句") || c.toLowerCase().includes("sentence"));
             continue;
         }
-        
         if (cols.length >= 2) {
             let eng = cols[engIdx] ? cols[engIdx].trim() : "";
             let chi = cols[chiIdx] ? cols[chiIdx].trim() : "";
@@ -493,16 +420,10 @@ function processCSVText(text) {
             let sen = (senIdx !== -1 && cols[senIdx]) ? cols[senIdx].trim() : ""; 
             
             if (eng && chi && eng !== "英文單字" && eng !== "english") {
-                let cleanEngKey = eng.toLowerCase();
-                
-                if (allExistingEng.has(cleanEngKey)) {
-                    duplicateCount++; 
-                } else {
-                    allExistingEng.add(cleanEngKey); 
-                    let finalChi = chi;
-                    if (tag && !chi.includes(tag)) {
-                        finalChi = `${chi} (${tag})`;
-                    }
+                if (allExistingEng.has(eng.toLowerCase())) duplicateCount++; 
+                else {
+                    allExistingEng.add(eng.toLowerCase()); 
+                    let finalChi = (tag && !chi.includes(tag)) ? `${chi} (${tag})` : chi;
                     newWordsToAdd.push({ english: eng, chinese: finalChi, sentence: sen });
                     addedCount++;
                 }
@@ -513,38 +434,34 @@ function processCSVText(text) {
     if (newWordsToAdd.length > 0) {
         existingCustomWords = existingCustomWords.concat(newWordsToAdd);
         localStorage.setItem(`SpellingHero_CustomWords_${currentPlayer}`, JSON.stringify(existingCustomWords));
-        
-        document.getElementById("uploadStatus").innerText = `✅ 成功擴充 ${addedCount} 個新單字！(自動略過 ${duplicateCount} 個重複單字)`;
+        document.getElementById("uploadStatus").innerText = `✅ 成功擴充 ${addedCount} 個新單字！`;
         updateGroupSelector();
     } else {
-        document.getElementById("uploadStatus").innerText = `⚠️ 檔案中的 ${duplicateCount} 個單字皆已存在，無新增。`;
+        document.getElementById("uploadStatus").innerText = `⚠️ 皆已存在，無新增。`;
     }
 }
 
 function manualAddNewWord() {
-    let eng = prompt("請輸入英文單字 (例如: apple):");
+    let eng = prompt("請輸入英文單字:");
     if (!eng) return;
-    let chi = prompt("請輸入中文意思 (例如: 蘋果):");
+    let chi = prompt("請輸入中文意思:");
     if (!chi) return;
-    let tag = prompt("請輸入詞性 (例如: cn. 可數名詞 / v. 動詞) [可留空]:") || "";
+    let tag = prompt("請輸入詞性 [可留空]:") || "";
     let sen = prompt("請輸入例句 [可留空]:") || "";
 
     eng = eng.trim();
     let finalChi = tag ? `${chi} (${tag})` : chi;
-
     let existingCustomWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
     let allWords = wordList.concat(existingCustomWords);
     
-    let isDuplicate = allWords.some(w => w.english.toLowerCase() === eng.toLowerCase());
-    if (isDuplicate) {
-        alert(`❌ 新增失敗：「${eng}」已經存在於題庫中了！`);
+    if (allWords.some(w => w.english.toLowerCase() === eng.toLowerCase())) {
+        alert(`❌ 新增失敗：「${eng}」已經存在！`);
         return;
     }
 
     existingCustomWords.push({ english: eng, chinese: finalChi, sentence: sen });
     localStorage.setItem(`SpellingHero_CustomWords_${currentPlayer}`, JSON.stringify(existingCustomWords));
-    
-    alert(`✨ 成功新增單字：${eng} (${finalChi})！`);
+    alert(`✨ 成功新增單字：${eng}！`);
     updateGroupSelector();
 }
 
@@ -574,7 +491,6 @@ function openGroupManagerModal() {
         opt.innerText = gName;
         select.appendChild(opt);
     }
-    
     modal.style.display = "flex";
     renderGroupManagerContent();
 }
@@ -593,17 +509,13 @@ function renderGroupManagerContent() {
     let words = groups[gName] || [];
     
     if (words.length === 0) {
-        container.innerHTML = `<p style="color:#b2bec3; text-align:center; padding:20px;">此群組目前沒有單字。你可以從「單字挑選器」或自訂新增將單字歸納進來！</p>`;
+        container.innerHTML = `<p style="color:#b2bec3; text-align:center; padding:20px;">此群組目前沒有單字。點擊上方「➕ 新增單字進此群組」來加入吧！</p>`;
         return;
     }
     
-    words.forEach((w, index) => {
+    words.forEach((w) => {
         let div = document.createElement("div");
         div.className = "word-item";
-        div.style.display = "flex";
-        div.style.justifyContent = "space-between";
-        div.style.alignItems = "center";
-        
         div.innerHTML = `
             <span><b>${w.english}</b> - ${w.chinese}</span>
             <button onclick="removeWordFromSpecificGroup('${gName}', '${w.english}')" style="background-color:#d63031; padding:4px 8px; font-size:12px;">刪除</button>
@@ -635,11 +547,88 @@ function deleteCurrentGroup() {
     }
 }
 
+// ==================== 從總題庫挑選單字加入自訂群組 ====================
+function openAddToGroupModal() {
+    const gName = document.getElementById("manageGroupSelect").value;
+    if (!gName) return;
+
+    const modal = document.getElementById("addToGroupModal");
+    const container = document.getElementById("addToGroupContainer");
+    document.getElementById("addToGroupTitle").innerText = `將單字加入群組：[ ${gName} ]`;
+    container.innerHTML = "";
+
+    let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
+    let fullList = wordList.concat(customWords);
+    
+    let groups = getPlayerGroups();
+    let currentGroupWords = new Set((groups[gName] || []).map(w => w.english.toLowerCase()));
+
+    fullList.forEach((word, index) => {
+        let isAlreadyIn = currentGroupWords.has(word.english.toLowerCase());
+        let div = document.createElement("div");
+        div.className = "word-item";
+        
+        div.innerHTML = `
+            <label style="display:flex; align-items:center; cursor:${isAlreadyIn ? 'not-allowed' : 'pointer'}; width:100%; opacity:${isAlreadyIn ? 0.5 : 1};">
+                <input type="checkbox" class="add-to-group-cb" value="${index}" ${isAlreadyIn ? 'disabled checked' : ''} style="margin-right:10px;">
+                <span><b>${word.english}</b> (${word.chinese}) ${isAlreadyIn ? '<span style="color:green; font-size:12px;">(已在群組中)</span>' : ''}</span>
+            </label>
+        `;
+        container.appendChild(div);
+    });
+
+    modal.style.display = "flex";
+}
+
+function closeAddToGroupModal() {
+    document.getElementById("addToGroupModal").style.display = "none";
+}
+
+function toggleAddSelectAll(source) {
+    let checkboxes = document.querySelectorAll('.add-to-group-cb:not(:disabled)');
+    checkboxes.forEach(cb => cb.checked = source.checked);
+}
+
+function confirmAddToGroup() {
+    const gName = document.getElementById("manageGroupSelect").value;
+    let checkboxes = document.querySelectorAll('.add-to-group-cb:checked:not(:disabled)');
+    if (checkboxes.length === 0) {
+        alert("⚠️ 請至少勾選一個新單字！");
+        return;
+    }
+
+    let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
+    let fullList = wordList.concat(customWords);
+    let groups = getPlayerGroups();
+
+    if (!groups[gName]) groups[gName] = [];
+
+    checkboxes.forEach(cb => {
+        let idx = parseInt(cb.value);
+        let wordToAdd = fullList[idx];
+        // 避免重複加入
+        let exists = groups[gName].some(w => w.english.toLowerCase() === wordToAdd.english.toLowerCase());
+        if (!exists) {
+            groups[gName].push({
+                english: wordToAdd.english,
+                chinese: wordToAdd.chinese,
+                sentence: wordToAdd.sentence || ""
+            });
+        }
+    });
+
+    savePlayerGroups(groups);
+    closeAddToGroupModal();
+    renderGroupManagerContent();
+    updateGroupSelector();
+    alert("✨ 成功將勾選的單字加入群組！");
+}
+
+// ==================== 原有選擇器與兔子互動 ====================
 function openWordSelector() {
     const modal = document.getElementById("wordSelectorModal");
     const container = document.getElementById("wordListContainer");
     container.innerHTML = ""; 
-    
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
     let fullList = wordList.concat(customWords);
 
@@ -647,61 +636,37 @@ function openWordSelector() {
         let displayNum = index + 1;
         let div = document.createElement("div");
         div.className = "word-item";
-        
-        let checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.id = "word_cb_" + displayNum;
-        checkbox.value = displayNum;
-        checkbox.className = "word-checkbox";
-        
-        let tag = getDetailedPOS(word.english, word.chinese);
-        let label = document.createElement("label");
-        label.htmlFor = "word_cb_" + displayNum;
-        label.innerHTML = `第 ${displayNum} 題：<span style="color:#0984e3; font-weight:bold;">${tag}</span> <b>${word.english}</b> (${word.chinese})`;
-        
-        div.appendChild(checkbox);
-        div.appendChild(label);
+        div.innerHTML = `
+            <label style="display:flex; align-items:center; cursor:pointer; width:100%;">
+                <input type="checkbox" id="word_cb_${displayNum}" value="${displayNum}" class="word-checkbox" style="margin-right:10px;">
+                <span>第 ${displayNum} 題：<b>${word.english}</b> (${word.chinese})</span>
+            </label>
+        `;
         container.appendChild(div);
     });
-    
     modal.style.display = "flex";
 }
 
-function closeWordSelector() {
-    document.getElementById("wordSelectorModal").style.display = "none";
-}
-
-function toggleSelectAll(source) {
-    let checkboxes = document.querySelectorAll('.word-checkbox');
-    checkboxes.forEach(cb => cb.checked = source.checked);
-}
+function closeWordSelector() { document.getElementById("wordSelectorModal").style.display = "none"; }
+function toggleSelectAll(source) { document.querySelectorAll('.word-checkbox').forEach(cb => cb.checked = source.checked); }
 
 function confirmWordSelection() {
     let checkboxes = document.querySelectorAll('.word-checkbox:checked');
     let selected = [];
     checkboxes.forEach(cb => selected.push(cb.value));
-    
     document.getElementById("customIdx").value = selected.join(", ");
     closeWordSelector();
-    
-    if (document.getElementById("gameArea").style.display === "block") {
-        nextQuestion();
-    }
+    if (document.getElementById("gameArea").style.display === "block") nextQuestion();
 }
 
 function bunnySay(message) {
     const speechBubble = document.getElementById("bunnySpeech");
     const bunnyImg = document.getElementById("bunnyImg");
     const bunnyAvatar = document.getElementById("bunnyAvatar");
-
-    if (speechBubble) {
-        speechBubble.innerText = message;
-    }
-
+    if (speechBubble) speechBubble.innerText = message;
     if (bunnyImg && bunnyAvatar) {
         bunnyImg.src = "IMG_2596.png";
         bunnyAvatar.classList.add("bunny-talking");
-
         setTimeout(() => {
             bunnyImg.src = "IMG_2597.png";
             bunnyAvatar.classList.remove("bunny-talking");
@@ -710,12 +675,6 @@ function bunnySay(message) {
 }
 
 function bunnyGreet() {
-    const greetings = [
-        "你做得超棒的！繼續加油！",
-        "我是你的拼字小助手！",
-        "今天也要把單字全部答對喔！",
-        "累了的話要記得休息一下喔～"
-    ];
-    let randomMsg = greetings[Math.floor(Math.random() * greetings.length)];
-    bunnySay(randomMsg);
+    const greetings = ["你做得超棒的！繼續加油！", "我是你的拼字小助手！", "今天也要把單字全部答對喔！"];
+    bunnySay(greetings[Math.floor(Math.random() * greetings.length)]);
 }
