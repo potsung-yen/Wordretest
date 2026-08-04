@@ -22,13 +22,25 @@ function changeMode() {
     }
 }
 
-// ==================== 群組與單元管理核心 ====================
+// ==================== 群組與分級管理核心 ====================
 function getPlayerGroups() {
     let data = localStorage.getItem(`SpellingHero_Groups_${currentPlayer}`);
-    return data ? JSON.parse(data) : {
+    let groups = data ? JSON.parse(data) : {
         "⭐ 我的自選單字": [],
-        "💥 難記單字精選": []
+        "🌱 難記單字-初級(錯2次up)": [],
+        "🔥 難記單字-中級(錯5次up)": [],
+        "💀 難記單字-高級(錯10次up)": [],
+        "🤖 系統自動常錯單字": []
     };
+    
+    // 確保所有分級群組存在
+    if (!groups["🌱 難記單字-初級(錯2次up)"]) groups["🌱 難記單字-初級(錯2次up)"] = [];
+    if (!groups["🔥 難記單字-中級(錯5次up)"]) groups["🔥 難記單字-中級(錯5次up)"] = [];
+    if (!groups["💀 難記單字-高級(錯10次up)"]) groups["💀 難記單字-高級(錯10次up)"] = [];
+    if (!groups["⭐ 我的自選單字"]) groups["⭐ 我的自選單字"] = [];
+    if (!groups["🤖 系統自動常錯單字"]) groups["🤖 系統自動常錯單字"] = [];
+    
+    return groups;
 }
 
 function savePlayerGroups(groups) {
@@ -58,7 +70,6 @@ function updateGroupSelector() {
     
     select.innerHTML = `
         <option value="all">預設全部題庫 (492題)</option>
-        <option value="auto_mistakes">🤖 系統自動常錯單字群組</option>
     `;
     
     let groups = getPlayerGroups();
@@ -70,15 +81,51 @@ function updateGroupSelector() {
     }
 }
 
+// 根據錯題次數自動分級：初級(2次)、中級(5次)、高級(10次)
 function syncAutoMistakesGroup(playerRecord) {
     let groups = getPlayerGroups();
-    let mistakeWords = Object.values(playerRecord.mistakes).map(w => ({
-        english: w.english,
-        chinese: w.chinese,
-        sentence: w.sentence || ""
-    }));
-    groups["🤖 系統自動常錯單字"] = mistakeWords;
+    
+    let juniorSet = new Map();
+    let intermediateSet = new Map();
+    let advancedSet = new Map();
+    let allMistakesSet = new Map();
+
+    for (let key in playerRecord.mistakes) {
+        let w = playerRecord.mistakes[key];
+        let count = w.count || 1;
+        let wordObj = { english: w.english, chinese: w.chinese, sentence: w.sentence || "" };
+        let lowerEng = w.english.toLowerCase();
+
+        allMistakesSet.set(lowerEng, wordObj);
+
+        // 分級門檻邏輯
+        if (count >= 2) juniorSet.set(lowerEng, wordObj);
+        if (count >= 5) intermediateSet.set(lowerEng, wordObj);
+        if (count >= 10) advancedSet.set(lowerEng, wordObj);
+    }
+
+    // 更新各級群組（保留手動加進去的項目，並自動納入達到門檻的錯題）
+    mergeGroupWithAuto(groups, "🌱 難記單字-初級(錯2次up)", juniorSet);
+    mergeGroupWithAuto(groups, "🔥 難記單字-中級(錯5次up)", intermediateSet);
+    mergeGroupWithAuto(groups, "💀 難記單字-高級(錯10次up)", advancedSet);
+    mergeGroupWithAuto(groups, "🤖 系統自動常錯單字", allMistakesSet);
+
     savePlayerGroups(groups);
+}
+
+// 輔助函數：將自動偵測的錯題合併入群組，但不覆蓋使用者的手動調整
+function mergeGroupWithAuto(groups, groupName, autoMap) {
+    if (!groups[groupName]) groups[groupName] = [];
+    let existingMap = new Map(groups[groupName].map(w => [w.english.toLowerCase(), w]));
+
+    // 加入門檻達標的新錯題
+    autoMap.forEach((w, key) => {
+        if (!existingMap.has(key)) {
+            existingMap.set(key, w);
+        }
+    });
+
+    groups[groupName] = Array.from(existingMap.values());
 }
 
 // ==================== 題庫來源整合 ====================
@@ -88,11 +135,7 @@ function getCombinedWordList() {
 
     const groupSelectVal = document.getElementById("groupSelect").value;
     
-    if (groupSelectVal === "auto_mistakes") {
-        let record = getPlayerRecord();
-        let list = Object.values(record.mistakes);
-        return list.length > 0 ? list : fullList; 
-    } else if (groupSelectVal.startsWith("custom_")) {
+    if (groupSelectVal.startsWith("custom_")) {
         let gName = groupSelectVal.replace("custom_", "");
         let groups = getPlayerGroups();
         let gList = groups[gName] || [];
@@ -535,8 +578,16 @@ function removeWordFromSpecificGroup(groupName, english) {
 
 function deleteCurrentGroup() {
     const gName = document.getElementById("manageGroupSelect").value;
-    if (gName === "⭐ 我的自選單字" || gName === "💥 難記單字精選" || gName === "🤖 系統自動常錯單字") {
-        alert("⚠️ 預設系統群組無法刪除！");
+    const systemProtected = ["⭐ 我的自選單字", "🌱 難記單字-初級(錯2次up)", "🔥 難記單字-中級(錯5次up)", "💀 難記單字-高級(錯10次up)", "🤖 系統自動常錯單字"];
+    
+    if (systemProtected.includes(gName)) {
+        if (confirm(`這是系統預設群組，不能刪除群組本身，但要清空裡面的所有單字嗎？`)) {
+            let groups = getPlayerGroups();
+            groups[gName] = [];
+            savePlayerGroups(groups);
+            renderGroupManagerContent();
+            updateGroupSelector();
+        }
         return;
     }
     if (confirm(`確定要刪除群組「${gName}」嗎？`)) {
@@ -606,7 +657,6 @@ function confirmAddToGroup() {
     checkboxes.forEach(cb => {
         let idx = parseInt(cb.value);
         let wordToAdd = fullList[idx];
-        // 避免重複加入
         let exists = groups[gName].some(w => w.english.toLowerCase() === wordToAdd.english.toLowerCase());
         if (!exists) {
             groups[gName].push({
@@ -624,7 +674,6 @@ function confirmAddToGroup() {
     alert("✨ 成功將勾選的單字加入群組！");
 }
 
-// ==================== 原有選擇器與兔子互動 ====================
 function openWordSelector() {
     const modal = document.getElementById("wordSelectorModal");
     const container = document.getElementById("wordListContainer");
