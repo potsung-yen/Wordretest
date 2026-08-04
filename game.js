@@ -727,3 +727,4 @@ function bunnyGreet() {
     const greetings = ["你做得超棒的！繼續加油！", "我是你的拼字小助手！", "今天也要把單字全部答對喔！"];
     bunnySay(greetings[Math.floor(Math.random() * greetings.length)]);
 }
+
