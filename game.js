@@ -33,7 +33,6 @@ function getPlayerGroups() {
         "🤖 系統自動常錯單字": []
     };
     
-    // 確保所有分級群組存在
     if (!groups["🌱 難記單字-初級(錯2次up)"]) groups["🌱 難記單字-初級(錯2次up)"] = [];
     if (!groups["🔥 難記單字-中級(錯5次up)"]) groups["🔥 難記單字-中級(錯5次up)"] = [];
     if (!groups["💀 難記單字-高級(錯10次up)"]) groups["💀 難記單字-高級(錯10次up)"] = [];
@@ -73,18 +72,23 @@ function updateGroupSelector() {
     `;
     
     let groups = getPlayerGroups();
+    let playerRecord = getPlayerRecord();
+    let testedSet = playerRecord.testedWords || {};
+
     for (let gName in groups) {
+        let gList = groups[gName] || [];
+        let testedCount = gList.filter(w => testedSet[w.english.toLowerCase()]).length;
+        let percent = gList.length > 0 ? Math.round((testedCount / gList.length) * 100) : 0;
+
         let opt = document.createElement("option");
         opt.value = "custom_" + gName;
-        opt.innerText = `📁 ${gName} (${groups[gName].length}字)`;
+        opt.innerText = `📁 ${gName} (${gList.length}字) [已測: ${percent}%]`;
         select.appendChild(opt);
     }
 }
 
-// 根據錯題次數自動分級：初級(2次)、中級(5次)、高級(10次)
 function syncAutoMistakesGroup(playerRecord) {
     let groups = getPlayerGroups();
-    
     let juniorSet = new Map();
     let intermediateSet = new Map();
     let advancedSet = new Map();
@@ -97,14 +101,11 @@ function syncAutoMistakesGroup(playerRecord) {
         let lowerEng = w.english.toLowerCase();
 
         allMistakesSet.set(lowerEng, wordObj);
-
-        // 分級門檻邏輯
         if (count >= 2) juniorSet.set(lowerEng, wordObj);
         if (count >= 5) intermediateSet.set(lowerEng, wordObj);
         if (count >= 10) advancedSet.set(lowerEng, wordObj);
     }
 
-    // 更新各級群組（保留手動加進去的項目，並自動納入達到門檻的錯題）
     mergeGroupWithAuto(groups, "🌱 難記單字-初級(錯2次up)", juniorSet);
     mergeGroupWithAuto(groups, "🔥 難記單字-中級(錯5次up)", intermediateSet);
     mergeGroupWithAuto(groups, "💀 難記單字-高級(錯10次up)", advancedSet);
@@ -113,76 +114,89 @@ function syncAutoMistakesGroup(playerRecord) {
     savePlayerGroups(groups);
 }
 
-// 輔助函數：將自動偵測的錯題合併入群組，但不覆蓋使用者的手動調整
 function mergeGroupWithAuto(groups, groupName, autoMap) {
     if (!groups[groupName]) groups[groupName] = [];
     let existingMap = new Map(groups[groupName].map(w => [w.english.toLowerCase(), w]));
-
-    // 加入門檻達標的新錯題
     autoMap.forEach((w, key) => {
-        if (!existingMap.has(key)) {
-            existingMap.set(key, w);
-        }
+        if (!existingMap.has(key)) existingMap.set(key, w);
     });
-
     groups[groupName] = Array.from(existingMap.values());
 }
 
-// ==================== 題庫來源整合 ====================
+// ==================== 智慧權重與未測過優先出題核心 ====================
 function getCombinedWordList() {
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
     let fullList = wordList.concat(customWords);
 
     const groupSelectVal = document.getElementById("groupSelect").value;
+    let targetList = fullList;
     
     if (groupSelectVal.startsWith("custom_")) {
         let gName = groupSelectVal.replace("custom_", "");
         let groups = getPlayerGroups();
-        let gList = groups[gName] || [];
-        return gList.length > 0 ? gList : fullList;
-    }
-
-    let customIdxStr = document.getElementById("customIdx").value.trim();
-    let selectedWords = [];
-
-    if (customIdxStr !== "") {
-        let parts = customIdxStr.split(',');
-        let indices = new Set(); 
-        
-        for (let part of parts) {
-            part = part.trim();
-            if (part.includes('-')) {
-                let bounds = part.split('-');
-                if (bounds.length >= 2) {
-                    let s = parseInt(bounds[0]);
-                    let e = parseInt(bounds[1]);
-                    if (!isNaN(s) && !isNaN(e)) {
-                        let min = Math.min(s, e);
-                        let max = Math.max(s, e);
+        targetList = groups[gName] || fullList;
+    } else {
+        let customIdxStr = document.getElementById("customIdx").value.trim();
+        if (customIdxStr !== "") {
+            let parts = customIdxStr.split(',');
+            let indices = new Set(); 
+            for (let part of parts) {
+                part = part.trim();
+                if (part.includes('-')) {
+                    let bounds = part.split('-');
+                    if (bounds.length >= 2) {
+                        let s = parseInt(bounds[0]), e = parseInt(bounds[1]);
+                        let min = Math.min(s, e), max = Math.max(s, e);
                         for (let i = min; i <= max; i++) {
                             if (i >= 1 && i <= fullList.length) indices.add(i - 1);
                         }
                     }
-                }
-            } else {
-                let val = parseInt(part);
-                if (!isNaN(val) && val >= 1 && val <= fullList.length) {
-                    indices.add(val - 1);
+                } else {
+                    let val = parseInt(part);
+                    if (!isNaN(val) && val >= 1 && val <= fullList.length) indices.add(val - 1);
                 }
             }
+            let selectedWords = [];
+            indices.forEach(idx => selectedWords.push(fullList[idx]));
+            if (selectedWords.length > 0) targetList = selectedWords;
+        } else {
+            let start = parseInt(document.getElementById("startIdx").value) || 1;
+            let end = parseInt(document.getElementById("endIdx").value) || fullList.length;
+            if (start < 1) start = 1;
+            if (end > fullList.length) end = fullList.length;
+            if (start > end) start = end;
+            targetList = fullList.slice(start - 1, end);
         }
-        
-        indices.forEach(idx => selectedWords.push(fullList[idx]));
-        if (selectedWords.length > 0) return selectedWords;
+    }
+    return targetList;
+}
+
+function getSmartWeightedWord() {
+    let list = getCombinedWordList();
+    if (list.length === 0) return null;
+
+    let playerRecord = getPlayerRecord();
+    let testedSet = playerRecord.testedWords || {};
+    let mistakes = playerRecord.mistakes || {};
+
+    let untriedWords = list.filter(w => !testedSet[w.english.toLowerCase()]);
+    if (untriedWords.length > 0) {
+        let randIdx = Math.floor(Math.random() * untriedWords.length);
+        return untriedWords[randIdx];
     }
 
-    let start = parseInt(document.getElementById("startIdx").value) || 1;
-    let end = parseInt(document.getElementById("endIdx").value) || fullList.length;
-    if (start < 1) start = 1;
-    if (end > fullList.length) end = fullList.length;
-    if (start > end) start = end;
+    let weightedPool = [];
+    list.forEach(w => {
+        let key = w.english.toLowerCase();
+        let mistakeInfo = mistakes[key];
+        let weight = mistakeInfo ? (1 + mistakeInfo.count * 2) : 1;
+        for (let i = 0; i < weight; i++) {
+            weightedPool.push(w);
+        }
+    });
 
-    return fullList.slice(start - 1, end);
+    let finalRandIdx = Math.floor(Math.random() * weightedPool.length);
+    return weightedPool[finalRandIdx];
 }
 
 function getDetailedPOS(eng, chi) {
@@ -247,13 +261,11 @@ function nextQuestion() {
         const randomIndex = Math.floor(Math.random() * bossWordList.length);
         currentWord = bossWordList[randomIndex];
     } else {
-        const combinedList = getCombinedWordList();
-        if (combinedList.length === 0) {
+        currentWord = getSmartWeightedWord();
+        if (!currentWord) {
             alert("⚠️ 目前群組或範圍內沒有單字，請先至「管理群組單字」加入單字！");
             return;
         }
-        const randomIndex = Math.floor(Math.random() * combinedList.length);
-        currentWord = combinedList[randomIndex];
     }
 
     let posTag = getDetailedPOS(currentWord.english, currentWord.chinese);
@@ -332,6 +344,10 @@ function processResult(userInput, isChoiceMode) {
     const correctClean = correctAnswer.replace(/^(a |an |the |to )/i, '').replace(/\([^)]*\)/g, '').trim();
     const feedback = document.getElementById("feedbackMsg");
     let playerRecord = getPlayerRecord();
+    
+    if (!playerRecord.testedWords) playerRecord.testedWords = {};
+    playerRecord.testedWords[correctAnswer] = true;
+
     let isCorrect = (userInput.toLowerCase() === correctAnswer || userInput.toLowerCase() === correctClean);
 
     if (isCorrect) {
@@ -359,6 +375,7 @@ function processResult(userInput, isChoiceMode) {
     savePlayerRecord(playerRecord);
     syncAutoMistakesGroup(playerRecord);
     updateScoreBoard();
+    updateGroupSelector();
     checkBossAvailable();
 
     if (!isChoiceMode) {
@@ -387,7 +404,7 @@ function handleEnter(event) {
 
 function getPlayerRecord() {
     let data = localStorage.getItem(`SpellingHero_${currentPlayer}`);
-    return data ? JSON.parse(data) : { score: 0, mistakes: {} };
+    return data ? JSON.parse(data) : { score: 0, mistakes: {}, testedWords: {} };
 }
 function savePlayerRecord(data) { localStorage.setItem(`SpellingHero_${currentPlayer}`, JSON.stringify(data)); }
 function updateScoreBoard() { document.getElementById("score").innerText = getPlayerRecord().score; }
@@ -598,42 +615,68 @@ function deleteCurrentGroup() {
     }
 }
 
-// ==================== 從總題庫挑選單字加入自訂群組 ====================
+// ==================== 帶即時搜尋功能的加入群組 Modal ====================
+let allGlobalWordsForAdd = [];
+
 function openAddToGroupModal() {
     const gName = document.getElementById("manageGroupSelect").value;
     if (!gName) return;
 
     const modal = document.getElementById("addToGroupModal");
-    const container = document.getElementById("addToGroupContainer");
     document.getElementById("addToGroupTitle").innerText = `將單字加入群組：[ ${gName} ]`;
-    container.innerHTML = "";
+    document.getElementById("wordSearchInput").value = "";
 
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
-    let fullList = wordList.concat(customWords);
-    
+    allGlobalWordsForAdd = wordList.concat(customWords);
+
+    renderAddToGroupList(allGlobalWordsForAdd);
+    modal.style.display = "flex";
+}
+
+function renderAddToGroupList(listToRender) {
+    const container = document.getElementById("addToGroupContainer");
+    container.innerHTML = "";
+
+    const gName = document.getElementById("manageGroupSelect").value;
     let groups = getPlayerGroups();
     let currentGroupWords = new Set((groups[gName] || []).map(w => w.english.toLowerCase()));
 
-    fullList.forEach((word, index) => {
+    listToRender.forEach((word) => {
+        // 找回它在總題庫中的原始索引
+        let originalIndex = wordList.concat(JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || []).findIndex(w => w.english.toLowerCase() === word.english.toLowerCase());
+        
         let isAlreadyIn = currentGroupWords.has(word.english.toLowerCase());
         let div = document.createElement("div");
-        div.className = "word-item";
+        div.className = "word-item add-to-group-item";
+        div.setAttribute("data-search", `${word.english.toLowerCase()} ${word.chinese.toLowerCase()}`);
         
         div.innerHTML = `
             <label style="display:flex; align-items:center; cursor:${isAlreadyIn ? 'not-allowed' : 'pointer'}; width:100%; opacity:${isAlreadyIn ? 0.5 : 1};">
-                <input type="checkbox" class="add-to-group-cb" value="${index}" ${isAlreadyIn ? 'disabled checked' : ''} style="margin-right:10px;">
+                <input type="checkbox" class="add-to-group-cb" value="${originalIndex}" ${isAlreadyIn ? 'disabled checked' : ''} style="margin-right:10px;">
                 <span><b>${word.english}</b> (${word.chinese}) ${isAlreadyIn ? '<span style="color:green; font-size:12px;">(已在群組中)</span>' : ''}</span>
             </label>
         `;
         container.appendChild(div);
     });
-
-    modal.style.display = "flex";
 }
 
-function closeAddToGroupModal() {
-    document.getElementById("addToGroupModal").style.display = "none";
+function filterAddToGroupList() {
+    let keyword = document.getElementById("wordSearchInput").value.trim().toLowerCase();
+    let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
+    let fullList = wordList.concat(customWords);
+
+    if (!keyword) {
+        renderAddToGroupList(fullList);
+        return;
+    }
+
+    let filtered = fullList.filter(w => 
+        w.english.toLowerCase().includes(keyword) || w.chinese.toLowerCase().includes(keyword)
+    );
+    renderAddToGroupList(filtered);
 }
+
+function closeAddToGroupModal() { document.getElementById("addToGroupModal").style.display = "none"; }
 
 function toggleAddSelectAll(source) {
     let checkboxes = document.querySelectorAll('.add-to-group-cb:not(:disabled)');
@@ -643,15 +686,11 @@ function toggleAddSelectAll(source) {
 function confirmAddToGroup() {
     const gName = document.getElementById("manageGroupSelect").value;
     let checkboxes = document.querySelectorAll('.add-to-group-cb:checked:not(:disabled)');
-    if (checkboxes.length === 0) {
-        alert("⚠️ 請至少勾選一個新單字！");
-        return;
-    }
+    if (checkboxes.length === 0) { alert("⚠️ 請至少勾選一個新單字！"); return; }
 
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
     let fullList = wordList.concat(customWords);
     let groups = getPlayerGroups();
-
     if (!groups[gName]) groups[gName] = [];
 
     checkboxes.forEach(cb => {
@@ -659,11 +698,7 @@ function confirmAddToGroup() {
         let wordToAdd = fullList[idx];
         let exists = groups[gName].some(w => w.english.toLowerCase() === wordToAdd.english.toLowerCase());
         if (!exists) {
-            groups[gName].push({
-                english: wordToAdd.english,
-                chinese: wordToAdd.chinese,
-                sentence: wordToAdd.sentence || ""
-            });
+            groups[gName].push({ english: wordToAdd.english, chinese: wordToAdd.chinese, sentence: wordToAdd.sentence || "" });
         }
     });
 
@@ -727,4 +762,3 @@ function bunnyGreet() {
     const greetings = ["你做得超棒的！繼續加油！", "我是你的拼字小助手！", "今天也要把單字全部答對喔！"];
     bunnySay(greetings[Math.floor(Math.random() * greetings.length)]);
 }
-
