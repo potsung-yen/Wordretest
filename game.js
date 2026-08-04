@@ -3,8 +3,19 @@ let currentWord = {};
 let isBossMode = false;
 let bossWordList = [];
 
+// 【新增功能】：讓 iPhone 點擊輸入框時，畫面自動微調置中，不被鍵盤擋住
+function scrollToFocusArea() {
+    setTimeout(() => {
+        const gameArea = document.getElementById("gameArea");
+        if (gameArea) {
+            gameArea.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, 300); // 延遲 300 毫秒等待鍵盤完全彈出
+}
+
 function startGame() {
     currentPlayer = document.getElementById("playerName").value.trim() || "冒險王";
+    
     document.getElementById("gameArea").style.display = "block";
     document.getElementById("uploadArea").style.display = "block"; 
     
@@ -14,6 +25,7 @@ function startGame() {
     
     bunnySay(`加油啦 ${currentPlayer}！我們一起破關！`);
     nextQuestion();
+    scrollToFocusArea(); // 開始測驗時立刻定位畫面
 }
 
 function changeMode() {
@@ -67,6 +79,8 @@ function updateGroupSelector() {
     const select = document.getElementById("groupSelect");
     if (!select) return;
     
+    let previousVal = select.value;
+
     select.innerHTML = `
         <option value="all">預設全部題庫 (492題)</option>
     `;
@@ -84,6 +98,10 @@ function updateGroupSelector() {
         opt.value = "custom_" + gName;
         opt.innerText = `📁 ${gName} (${gList.length}字) [已測: ${percent}%]`;
         select.appendChild(opt);
+    }
+
+    if (previousVal) {
+        select.value = previousVal;
     }
 }
 
@@ -123,24 +141,27 @@ function mergeGroupWithAuto(groups, groupName, autoMap) {
     groups[groupName] = Array.from(existingMap.values());
 }
 
-// ==================== 智慧權重與未測過優先出題核心 (已修正防呆) ====================
+// ==================== 智慧權重與群組選取核心 ====================
 function getCombinedWordList() {
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
-    let fullList = wordList.concat(customWords);
+    let baseList = (typeof wordList !== 'undefined') ? wordList : [];
+    let fullList = baseList.concat(customWords);
 
-    const groupSelectVal = document.getElementById("groupSelect").value;
+    const selectEl = document.getElementById("groupSelect");
+    const groupSelectVal = selectEl ? selectEl.value : "all";
     let targetList = fullList;
     
     if (groupSelectVal && groupSelectVal.startsWith("custom_")) {
         let gName = groupSelectVal.replace("custom_", "");
         let groups = getPlayerGroups();
-        targetList = groups[gName] || [];
+        let groupWords = groups[gName] || [];
         
-        // 防呆：如果自選群組裡面沒有單字，提醒並暫時切回全部題庫，避免跳開或崩潰
-        if (targetList.length === 0) {
-            alert(`⚠️ 提示：群組「${gName}」目前沒有任何單字！已暫時切回預設全部題庫。請先至「管理群組單字」新增單字。`);
-            document.getElementById("groupSelect").value = "all";
+        if (groupWords.length === 0) {
+            alert(`⚠️ 提示：群組「${gName}」目前沒有任何單字！\n為了能繼續測驗，將暫時為您切回「全部題庫」。\n\n(請先點擊『管理群組單字』來加入字彙)`);
+            if (selectEl) selectEl.value = "all";
             targetList = fullList;
+        } else {
+            targetList = groupWords;
         }
     } else {
         let customIdxStr = document.getElementById("customIdx").value.trim();
@@ -251,10 +272,21 @@ function nextQuestion() {
         document.getElementById("submitBtn").style.display = "inline-block";
         document.getElementById("englishInput").disabled = false;
         document.getElementById("englishInput").value = "";
-        document.getElementById("englishInput").focus();
+        
+        // 只有在非魔王戰鬥自動跳轉時才直接focus，減少手機上頻繁跳出鍵盤
+        if(!document.getElementById("autoNext").checked) {
+            document.getElementById("englishInput").focus();
+        } else {
+            // 用戶自動切換下一題時，呼叫置中並對焦
+            setTimeout(() => { 
+                document.getElementById("englishInput").focus();
+                scrollToFocusArea();
+            }, 100);
+        }
     } else {
         document.getElementById("spellingArea").style.display = "none";
         document.getElementById("choiceArea").style.display = "flex";
+        scrollToFocusArea();
     }
 
     if (isBossMode) {
@@ -270,8 +302,7 @@ function nextQuestion() {
     } else {
         currentWord = getSmartWeightedWord();
         if (!currentWord) {
-            alert("⚠️ 目前群組或範圍內沒有單字，請先至「管理群組單字」加入單字！");
-            return;
+            return; 
         }
     }
 
@@ -297,7 +328,8 @@ function renderChoiceOptions() {
     const choiceArea = document.getElementById("choiceArea");
     choiceArea.innerHTML = "";
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
-    let fullList = wordList.concat(customWords);
+    let baseList = (typeof wordList !== 'undefined') ? wordList : [];
+    let fullList = baseList.concat(customWords);
 
     let wrongOptions = fullList.filter(w => w.english.toLowerCase() !== currentWord.english.toLowerCase());
     wrongOptions.sort(() => Math.random() - 0.5);
@@ -382,8 +414,11 @@ function processResult(userInput, isChoiceMode) {
     savePlayerRecord(playerRecord);
     syncAutoMistakesGroup(playerRecord);
     updateScoreBoard();
-    updateGroupSelector();
+    updateGroupSelector(); 
     checkBossAvailable();
+    
+    // 答完後再次確保焦點位置，讓回饋訊息也能看清楚
+    scrollToFocusArea(); 
 
     if (!isChoiceMode) {
         document.getElementById("englishInput").disabled = true;
@@ -466,7 +501,8 @@ function processCSVText(text) {
     let addedCount = 0, duplicateCount = 0;
     let engIdx = 0, tagIdx = 1, chiIdx = 2, senIdx = 3; 
     let existingCustomWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
-    let allExistingEng = new Set(wordList.concat(existingCustomWords).map(w => w.english.toLowerCase().trim()));
+    let baseList = (typeof wordList !== 'undefined') ? wordList : [];
+    let allExistingEng = new Set(baseList.concat(existingCustomWords).map(w => w.english.toLowerCase().trim()));
     let newWordsToAdd = [];
     
     for (let i = 0; i < rows.length; i++) {
@@ -519,7 +555,8 @@ function manualAddNewWord() {
     eng = eng.trim();
     let finalChi = tag ? `${chi} (${tag})` : chi;
     let existingCustomWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
-    let allWords = wordList.concat(existingCustomWords);
+    let baseList = (typeof wordList !== 'undefined') ? wordList : [];
+    let allWords = baseList.concat(existingCustomWords);
     
     if (allWords.some(w => w.english.toLowerCase() === eng.toLowerCase())) {
         alert(`❌ 新增失敗：「${eng}」已經存在！`);
@@ -634,7 +671,8 @@ function openAddToGroupModal() {
     document.getElementById("wordSearchInput").value = "";
 
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
-    allGlobalWordsForAdd = wordList.concat(customWords);
+    let baseList = (typeof wordList !== 'undefined') ? wordList : [];
+    allGlobalWordsForAdd = baseList.concat(customWords);
 
     renderAddToGroupList(allGlobalWordsForAdd);
     modal.style.display = "flex";
@@ -648,8 +686,10 @@ function renderAddToGroupList(listToRender) {
     let groups = getPlayerGroups();
     let currentGroupWords = new Set((groups[gName] || []).map(w => w.english.toLowerCase()));
 
+    let baseList = (typeof wordList !== 'undefined') ? wordList : [];
+
     listToRender.forEach((word) => {
-        let originalIndex = wordList.concat(JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || []).findIndex(w => w.english.toLowerCase() === word.english.toLowerCase());
+        let originalIndex = baseList.concat(JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || []).findIndex(w => w.english.toLowerCase() === word.english.toLowerCase());
         
         let isAlreadyIn = currentGroupWords.has(word.english.toLowerCase());
         let div = document.createElement("div");
@@ -669,7 +709,8 @@ function renderAddToGroupList(listToRender) {
 function filterAddToGroupList() {
     let keyword = document.getElementById("wordSearchInput").value.trim().toLowerCase();
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
-    let fullList = wordList.concat(customWords);
+    let baseList = (typeof wordList !== 'undefined') ? wordList : [];
+    let fullList = baseList.concat(customWords);
 
     if (!keyword) {
         renderAddToGroupList(fullList);
@@ -695,7 +736,8 @@ function confirmAddToGroup() {
     if (checkboxes.length === 0) { alert("⚠️ 請至少勾選一個新單字！"); return; }
 
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
-    let fullList = wordList.concat(customWords);
+    let baseList = (typeof wordList !== 'undefined') ? wordList : [];
+    let fullList = baseList.concat(customWords);
     let groups = getPlayerGroups();
     if (!groups[gName]) groups[gName] = [];
 
@@ -720,7 +762,8 @@ function openWordSelector() {
     const container = document.getElementById("wordListContainer");
     container.innerHTML = ""; 
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
-    let fullList = wordList.concat(customWords);
+    let baseList = (typeof wordList !== 'undefined') ? wordList : [];
+    let fullList = baseList.concat(customWords);
 
     fullList.forEach((word, index) => {
         let displayNum = index + 1;
