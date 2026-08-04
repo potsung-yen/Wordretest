@@ -2,7 +2,8 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 加入 maximum-scale=1.0, user-scalable=no 防止 iPhone 自動放大跑版 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Spelling Hero  英語單字冒險王</title>
     <style>
         body {
@@ -12,6 +13,8 @@
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
+            /* 預留底部空間，確保 iPhone 虛擬鍵盤彈出時，畫面有空間可以往上滑 */
+            padding-bottom: 350px; 
             text-align: center;
         }
         h1 { color: #2c3e50; }
@@ -24,6 +27,7 @@
             text-align: left;
             position: relative;
         }
+        /* 確保字體大小至少 16px，這是防止 iOS Safari 點擊輸入框時亂放大的關鍵 */
         input[type="text"], input[type="number"], select {
             padding: 8px 12px;
             font-size: 16px;
@@ -43,7 +47,7 @@
             transition: background 0.2s;
         }
         button:hover { background-color: #74b9ff; }
-        .feedback { font-size: 20px; font-weight: bold; margin: 15px 0; }
+        .feedback { font-size: 20px; font-weight: bold; margin: 15px 0; min-height: 30px; }
         .correct { color: #00b894; }
         .wrong { color: #d63031; }
         .option-btn {
@@ -123,7 +127,8 @@
         <div id="sentenceHint" style="font-size: 16px; color: #636e72; background: #f1f2f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: none;"></div>
 
         <div id="spellingArea">
-            <input type="text" id="englishInput" placeholder="請輸入英文單字..." style="width: 250px;" onkeypress="handleEnter(event)">
+            <!-- 加上 onfocus 觸發自動上滑置中，避免被鍵盤蓋住 -->
+            <input type="text" id="englishInput" placeholder="請輸入英文單字..." style="width: 250px;" onkeypress="handleEnter(event)" onfocus="scrollToFocusArea()">
             <button id="submitBtn" onclick="checkAnswer()">送出答案</button>
         </div>
 
@@ -191,18 +196,15 @@
         </div>
     </div>
 
-    <!-- 加上版本號避免瀏覽器快取 -->
-    <script src="words.js?v=4.1"></script>
-    <script src="game.js?v=4.1"></script>
+    <script src="words.js?v=6.0"></script>
+    <script src="game.js?v=6.0"></script>
     <script>
-        // 確保網頁一載入就先抓一次目前預設玩家名稱來生成群組選單
         function onPlayerNameChanged() {
             currentPlayer = document.getElementById("playerName").value.trim() || "冒險王";
             if (typeof updateGroupSelector === "function") {
                 updateGroupSelector();
             }
         }
-        // 初始化執行一次
         window.onload = function() {
             onPlayerNameChanged();
         };
