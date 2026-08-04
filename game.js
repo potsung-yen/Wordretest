@@ -123,7 +123,7 @@ function mergeGroupWithAuto(groups, groupName, autoMap) {
     groups[groupName] = Array.from(existingMap.values());
 }
 
-// ==================== 智慧權重與未測過優先出題核心 ====================
+// ==================== 智慧權重與未測過優先出題核心 (已修正防呆) ====================
 function getCombinedWordList() {
     let customWords = JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || [];
     let fullList = wordList.concat(customWords);
@@ -131,10 +131,17 @@ function getCombinedWordList() {
     const groupSelectVal = document.getElementById("groupSelect").value;
     let targetList = fullList;
     
-    if (groupSelectVal.startsWith("custom_")) {
+    if (groupSelectVal && groupSelectVal.startsWith("custom_")) {
         let gName = groupSelectVal.replace("custom_", "");
         let groups = getPlayerGroups();
-        targetList = groups[gName] || fullList;
+        targetList = groups[gName] || [];
+        
+        // 防呆：如果自選群組裡面沒有單字，提醒並暫時切回全部題庫，避免跳開或崩潰
+        if (targetList.length === 0) {
+            alert(`⚠️ 提示：群組「${gName}」目前沒有任何單字！已暫時切回預設全部題庫。請先至「管理群組單字」新增單字。`);
+            document.getElementById("groupSelect").value = "all";
+            targetList = fullList;
+        }
     } else {
         let customIdxStr = document.getElementById("customIdx").value.trim();
         if (customIdxStr !== "") {
@@ -642,7 +649,6 @@ function renderAddToGroupList(listToRender) {
     let currentGroupWords = new Set((groups[gName] || []).map(w => w.english.toLowerCase()));
 
     listToRender.forEach((word) => {
-        // 找回它在總題庫中的原始索引
         let originalIndex = wordList.concat(JSON.parse(localStorage.getItem(`SpellingHero_CustomWords_${currentPlayer}`)) || []).findIndex(w => w.english.toLowerCase() === word.english.toLowerCase());
         
         let isAlreadyIn = currentGroupWords.has(word.english.toLowerCase());
