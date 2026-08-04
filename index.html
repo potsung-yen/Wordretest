@@ -72,10 +72,10 @@
         <input type="text" id="playerName" value="冒險王"><br><br>
         
         <label>選擇學習群組/單元：</label>
-        <select id="groupSelect" style="width: 220px;">
+        <select id="groupSelect" style="width: 260px;">
             <option value="all">預設全部題庫 (492題)</option>
         </select>
-        <button onclick="createNewGroup()" style="background-color: #00b894; margin-left: 5px;">➕ 新增自定群組</button>
+        <button onclick="createNewGroup()" style="background-color: #00b894; margin-left: 5px;">➕ 新增群組</button>
         <button onclick="openGroupManagerModal()" style="background-color: #e17055; margin-left: 5px;">📁 管理群組單字</button><br><br>
 
         <label>題號範圍：</label>
@@ -172,11 +172,17 @@
         </div>
     </div>
 
-    <!-- 從總題庫挑選並加入特定群組的次級 Modal -->
+    <!-- 從總題庫搜尋並加入特定群組的次級 Modal -->
     <div id="addToGroupModal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1100; align-items:center; justify-content:center;">
-        <div style="background:white; width:90%; max-width:550px; height:75vh; border-radius:12px; padding:20px; display:flex; flex-direction:column;">
-            <h4 id="addToGroupTitle" style="margin-top:0;">勾選要加入群組的單字</h4>
-            <div style="margin: 5px 0; text-align: left;"><label><input type="checkbox" onclick="toggleAddSelectAll(this)"> 全選 / 取消全選</label></div>
+        <div style="background:white; width:90%; max-width:550px; height:80vh; border-radius:12px; padding:20px; display:flex; flex-direction:column;">
+            <h4 id="addToGroupTitle" style="margin-top:0;">搜尋並加入單字</h4>
+            
+            <!-- 🔍 即時搜尋框 -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <input type="text" id="wordSearchInput" placeholder="輸入關鍵字搜尋單字 (英文或中文)..." oninput="filterAddToGroupList()" style="width: 100%; box-sizing: border-box;">
+            </div>
+
+            <div style="margin: 5px 0; text-align: left;"><label><input type="checkbox" onclick="toggleAddSelectAll(this)"> 全選 / 取消全選 (目前篩選結果)</label></div>
             <div id="addToGroupContainer" style="flex:1; overflow-y:auto; border:1px solid #ddd; padding:10px; text-align:left; border-radius:6px; background:#fff;"></div>
             <div style="margin-top:15px; text-align:right;">
                 <button onclick="confirmAddToGroup()" style="background-color:#00b894;">確認加入</button>
@@ -185,8 +191,8 @@
         </div>
     </div>
 
-    <!-- 加上版本號避免瀏覽器快取問題 -->
-    <script src="words.js?v=2.0"></script>
-    <script src="game.js?v=2.0"></script>
+    <!-- 加上版本號避免瀏覽器快取 -->
+    <script src="words.js?v=4.0"></script>
+    <script src="game.js?v=4.0"></script>
 </body>
 </html>
