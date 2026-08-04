@@ -69,7 +69,7 @@
     <div class="card">
         <h3>設定冒險區域</h3>
         <label>玩家名稱：</label>
-        <input type="text" id="playerName" value="冒險王"><br><br>
+        <input type="text" id="playerName" value="冒險王" oninput="onPlayerNameChanged()"><br><br>
         
         <label>選擇學習群組/單元：</label>
         <select id="groupSelect" style="width: 260px;">
@@ -146,7 +146,7 @@
             <div id="wordListContainer" style="flex:1; overflow-y:auto; border:1px solid #ddd; padding:10px; text-align:left; border-radius:6px;"></div>
             <div style="margin-top:15px; text-align:right;">
                 <button onclick="confirmWordSelection()" style="background-color:#00b894;">確定選取</button>
-                <button onclick="closeWordSelector()" style="background-color:#636e72; margin-left:10px;">取消</button>
+                <button onclick="closeWordSelector()" style="background-color:#6c5ce7; margin-left:10px;">取消</button>
             </div>
         </div>
     </div>
@@ -167,7 +167,7 @@
             <div id="groupWordListContainer" style="flex:1; overflow-y:auto; border:1px solid #ddd; padding:10px; text-align:left; border-radius:6px; background:#fafafa;"></div>
             
             <div style="margin-top:15px; text-align:right;">
-                <button onclick="closeGroupManagerModal()" style="background-color:#636e72;">關閉視窗</button>
+                <button onclick="closeGroupManagerModal()" style="background-color:#6c5ce7;">關閉視窗</button>
             </div>
         </div>
     </div>
@@ -186,13 +186,26 @@
             <div id="addToGroupContainer" style="flex:1; overflow-y:auto; border:1px solid #ddd; padding:10px; text-align:left; border-radius:6px; background:#fff;"></div>
             <div style="margin-top:15px; text-align:right;">
                 <button onclick="confirmAddToGroup()" style="background-color:#00b894;">確認加入</button>
-                <button onclick="closeAddToGroupModal()" style="background-color:#636e72; margin-left:10px;">取消</button>
+                <button onclick="closeAddToGroupModal()" style="background-color:#6c5ce7; margin-left:10px;">取消</button>
             </div>
         </div>
     </div>
 
     <!-- 加上版本號避免瀏覽器快取 -->
-    <script src="words.js?v=4.0"></script>
-    <script src="game.js?v=4.0"></script>
+    <script src="words.js?v=4.1"></script>
+    <script src="game.js?v=4.1"></script>
+    <script>
+        // 確保網頁一載入就先抓一次目前預設玩家名稱來生成群組選單
+        function onPlayerNameChanged() {
+            currentPlayer = document.getElementById("playerName").value.trim() || "冒險王";
+            if (typeof updateGroupSelector === "function") {
+                updateGroupSelector();
+            }
+        }
+        // 初始化執行一次
+        window.onload = function() {
+            onPlayerNameChanged();
+        };
+    </script>
 </body>
 </html>
