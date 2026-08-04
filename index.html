@@ -74,7 +74,6 @@
         <label>選擇學習群組/單元：</label>
         <select id="groupSelect" style="width: 220px;">
             <option value="all">預設全部題庫 (492題)</option>
-            <option value="auto_mistakes">🤖 系統自動常錯單字群組</option>
         </select>
         <button onclick="createNewGroup()" style="background-color: #00b894; margin-left: 5px;">➕ 新增自定群組</button>
         <button onclick="openGroupManagerModal()" style="background-color: #e17055; margin-left: 5px;">📁 管理群組單字</button><br><br>
@@ -160,7 +159,7 @@
             <div style="margin: 10px 0; text-align: left; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                 <label>選擇群組：</label>
                 <select id="manageGroupSelect" onchange="renderGroupManagerContent()" style="width: 180px;"></select>
-                <button onclick="deleteCurrentGroup()" style="background-color: #d63031; padding: 6px 12px; font-size: 14px;">刪除此群組</button>
+                <button onclick="deleteCurrentGroup()" style="background-color: #d63031; padding: 6px 12px; font-size: 14px;">刪除/清空此群組</button>
                 <button onclick="openAddToGroupModal()" style="background-color: #0984e3; padding: 6px 12px; font-size: 14px;">➕ 新增單字進此群組</button>
             </div>
 
@@ -186,7 +185,8 @@
         </div>
     </div>
 
-    <script src="words.js"></script>
-    <script src="game.js"></script>
+    <!-- 加上版本號避免瀏覽器快取問題 -->
+    <script src="words.js?v=2.0"></script>
+    <script src="game.js?v=2.0"></script>
 </body>
 </html>
