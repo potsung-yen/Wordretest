@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spelling Hero 英語單字冒險王</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            text-align: left;
+            position: relative;
+        }
+        input[type="text"], input[type="number"], select {
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            margin: 5px;
+        }
+        button {
+            background-color: #0984e3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #74b9ff;
+        }
+        .feedback {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        .correct { color: #00b894; }
+        .wrong { color: #d63031; }
+        .option-btn {
+            display: block;
+            width: 100%;
+            margin: 8px 0;
+            padding: 12px;
+            font-size: 18px;
+            background: #dfe6e9;
+            color: #2d3436;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+        }
+        .option-btn:hover {
+            background: #b2bec3;
+        }
+        .btn-correct { background-color: #55efc4 !important; color: #000; }
+        .btn-wrong { background-color: #ff7675 !important; color: white; }
+
+        .word-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 16px;
+        }
+        .word-item input {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Spelling Hero 英語單字冒險王</h1>
+
+    <!-- 登入與範圍設定區 -->
+    <div class="card">
+        <h3>設定冒險區域</h3>
+        <label>玩家名稱：</label>
+        <input type="text" id="playerName" value="冒險王"><br><br>
+        
+        <label>選擇學習群組/單元：</label>
+        <select id="groupSelect" style="width: 220px;">
+            <option value="all">預設全部題庫 (492題)</option>
+            <option value="auto_mistakes">🤖 系統自動常錯單字群組</option>
+        </select>
+        <button onclick="createNewGroup()" style="background-color: #00b894; margin-left: 5px;">➕ 新增自定群組</button>
+        <button onclick="openGroupManagerModal()" style="background-color: #e17055; margin-left: 5px;">📁 管理群組單字</button><br><br>
+
+        <label>題號範圍：</label>
+        從第 <input type="number" id="startIdx" value="1"> 題
+        到第 <input type="number" id="endIdx" value="50"> 題
+        <button onclick="openWordSelector()" style="background-color: #6c5ce7; margin-left: 10px;">點我看單字挑選器</button><br><br>
+        
+        <label>自訂指定題號 (例如 1, 5, 10-15)：</label>
+        <input type="text" id="customIdx" placeholder="留空則照上方範圍" style="width: 200px;"><br><br>
+
+        <label>遊戲模式：</label>
+        <label><input type="radio" name="gameMode" value="spelling" checked onchange="changeMode()"> 拼字模式</label>
+        <label style="margin-left: 15px;"><input type="radio" name="gameMode" value="choice" onchange="changeMode()"> 選擇題模式</label><br><br>
+
+        <button onclick="startGame()">開始冒險</button>
+        <button id="bossBtn" onclick="startBossBattle()" style="display:none; background-color: #d63031; margin-left: 10px;">挑戰魔王</button>
+        <button onclick="exportMistakes()" style="background-color: #e17055; margin-left: 10px;">下載錯題本</button>
+    </div>
+
+    <!-- 上傳自訂生字與例句區 (含防重與批次上傳) -->
+    <div class="card" id="uploadArea" style="display:none;">
+        <h3>擴充生字與例句 (支援防重複自動過濾)</h3>
+        <label>選擇 CSV 批次檔案：</label>
+        <input type="file" id="csvFile" accept=".csv" onchange="handleFileUpload(event)">
+        <button onclick="manualAddNewWord()" style="background-color: #0984e3; margin-left: 10px;">➕ 手動新增單字</button>
+        <span id="uploadStatus" style="margin-left: 10px; color: #00b894; font-weight: bold;"></span>
+    </div>
+
+    <!-- 遊戲互動主區 -->
+    <div id="gameArea" class="card" style="display:none; padding-right: 90px;">
+        <div id="bunnyContainer" style="position: absolute; top: 15px; right: 15px; display: flex; align-items: center; z-index: 10;">
+            <div id="bunnySpeech" style="background: #fffdf9; border: 2px solid #8b5a2b; border-radius: 12px; padding: 6px 10px; margin-right: 8px; font-size: 13px; font-weight: bold; color: #4a3525; box-shadow: 0 4px 10px rgba(0,0,0,0.15); max-width: 140px; text-align: center; font-family: 'Microsoft JhengHei', sans-serif;">
+                Hello!
+            </div>
+            <div id="bunnyAvatar" style="width: 60px; height: 60px; background: #fff; border: 2px solid #8b5a2b; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; overflow: hidden; transition: transform 0.2s;" onclick="bunnyGreet()">
+                <img id="bunnyImg" src="IMG_2597.png" alt="兔子貼圖" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+        </div>
+
+        <h3>當前得分：<span id="score" style="color: #e17055;">0</span> 分</h3>
+        
+        <div style="font-size: 24px; margin: 20px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span id="chineseHint">中文提示</span>
+            <button onclick="speakWord()" style="background-color: #00b894; padding: 6px 14px; font-size: 16px;" title="聽真人發音">🔊 發音</button>
+        </div>
+
+        <div id="sentenceHint" style="font-size: 16px; color: #636e72; background: #f1f2f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: none;"></div>
+
+        <div id="spellingArea">
+            <input type="text" id="englishInput" placeholder="請輸入英文單字..." style="width: 250px;" onkeypress="handleEnter(event)">
+            <button id="submitBtn" onclick="checkAnswer()">送出答案</button>
+        </div>
+
+        <div id="choiceArea" style="display:none; flex-direction: column;"></div>
+
+        <div id="feedbackMsg" class="feedback"></div>
+        
+        <div style="margin-top: 15px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <label style="cursor: pointer; font-size: 16px;">
+                <input type="checkbox" id="autoNext" checked style="transform: scale(1.2); margin-right: 5px;"> 答對自動跳下一題
+            </label>
+            <button id="nextBtn" onclick="nextQuestion()" style="display:none; background-color: #00b894;">下一題</button>
+        </div>
+    </div>
+
+    <!-- 單字挑選器 Modal 視窗 -->
+    <div id="wordSelectorModal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:white; width:90%; max-width:600px; height:80vh; border-radius:12px; padding:20px; display:flex; flex-direction:column;">
+            <h3>單字快速勾選器</h3>
+            <div style="margin: 10px 0;">
+                <label><input type="checkbox" onclick="toggleSelectAll(this)"> 全選 / 取消全選</label>
+            </div>
+            <div id="wordListContainer" style="flex:1; overflow-y:auto; border:1px solid #ddd; padding:10px; text-align:left; border-radius:6px;"></div>
+            <div style="margin-top:15px; text-align:right;">
+                <button onclick="confirmWordSelection()" style="background-color:#00b894;">確定選取</button>
+                <button onclick="closeWordSelector()" style="background-color:#636e72; margin-left:10px;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 群組管理 Modal 視窗 -->
+    <div id="groupManagerModal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:white; width:90%; max-width:600px; height:80vh; border-radius:12px; padding:20px; display:flex; flex-direction:column;">
+            <h3>管理自訂群組與單字</h3>
+            <div style="margin: 10px 0; text-align: left;">
+                <label>選擇要管理的群組：</label>
+                <select id="manageGroupSelect" onchange="renderGroupManagerContent()" style="width: 200px;"></select>
+                <button onclick="deleteCurrentGroup()" style="background-color: #d63031; padding: 6px 12px; font-size: 14px;">刪除此群組</button>
+            </div>
+            <div id="groupWordListContainer" style="flex:1; overflow-y:auto; border:1px solid #ddd; padding:10px; text-align:left; border-radius:6px; background:#fafafa;"></div>
+            <div style="margin-top:15px; text-align:right;">
+                <button onclick="closeGroupManagerModal()" style="background-color:#636e72;">關閉視窗</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes bunnyJump {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1) translateY(-5px); }
+            100% { transform: scale(1); }
+        }
+        .bunny-talking {
+            animation: bunnyJump 0.3s infinite alternate;
+        }
+    </style>
+
+    <script src="words.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
